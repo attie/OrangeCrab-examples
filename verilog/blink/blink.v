@@ -93,25 +93,26 @@ module top (
 	reg [7:0] pwm_duty = 0;
 
 	/* state[2:0]
-	*    000 - red
-	*    001 - yellow
-	*    010 - green
-	*    011 - cyan
-	*    100 - blue
-	*    101 - magenta
+	* 000   RED    _____    blue,    Magenta -> Red
+	* 001   RED    green'   ____     Bed     -> Orange
+	* 010   red,   GREEN    ____     Orange  -> Green
+	* 011   ___    GREEN    blue'    Green   -> Cyan
+	* 100   ___    green,   BLUE     Cyan    -> Blue
+	* 101   red'   _____    BLUE     Blue    -> Magenta
 	*/
 	always @(posedge clk_adv) begin
-		if (down == 0) begin /* count up */
-			if (pwm_duty == 'hFF) begin
-				down <= 1;
+		if (state[0] == 0) begin
+			/* fade ___ down */
+			if (pwm_duty == 0) begin
+				state <= state + 1;
 			end
 			else begin
-				pwm_duty <= pwm_duty + 1;
+				pwm_duty <= pwm_duty - 1;
 			end
 		end
-		else begin /* count down */
-			if (pwm_duty == 0) begin
-				down <= 0;
+		else begin
+			/* fade ___ up */
+			if (pwm_duty == 'hFF) begin
 				if (state == 'b101) begin
 					state <= 0;
 				end
@@ -120,7 +121,7 @@ module top (
 				end
 			end
 			else begin
-				pwm_duty <= pwm_duty - 1;
+				pwm_duty <= pwm_duty + 1;
 			end
 		end
 	end
@@ -140,24 +141,27 @@ module top (
 	wire b_en;
 
 	assign r_en = (
-		(state == 'b000) ||
-		(state == 'b001) ||
-		(state == 'b101)
+		((state == 'b101) && pwm_out) ||
+		 (state == 'b000) ||
+		 (state == 'b001) ||
+		((state == 'b010) && pwm_out)
 	);
 	assign g_en = (
-		(state == 'b001) ||
-		(state == 'b010) ||
-		(state == 'b011)
+		((state == 'b001) && pwm_out) ||
+		 (state == 'b010) ||
+		 (state == 'b011) ||
+		((state == 'b100) && pwm_out)
 	);
 	assign b_en = (
-		(state == 'b011) ||
-		(state == 'b100) ||
-		(state == 'b101)
+		((state == 'b011) && pwm_out) ||
+		 (state == 'b100) ||
+		 (state == 'b101) ||
+		((state == 'b000) && pwm_out)
 	);
 
-	assign LED1 = ~(r_en && pwm_out);
-    assign LED2 = ~(g_en && pwm_out);
-    assign LED3 = ~(b_en && pwm_out);
+	assign LED1 = ~r_en;
+	assign LED2 = ~g_en;
+	assign LED3 = ~b_en;
 
 endmodule
 
